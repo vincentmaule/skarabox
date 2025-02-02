@@ -5,7 +5,7 @@ SkaraboxOS is an opinionated and simplified headless NixOS installer.
 It provides a flake [template](./template) which combines:
 - Creating a bootable ISO, installable on an USB key.
 - [nixos-anywhere](https://github.com/nix-community/nixos-anywhere) to install NixOS headlessly.
-- [disko](https://github.com/nix-community/disko) to format the drives using native ZFS encryption with remote unlocking through ssh.
+- [disko](https://github.com/nix-community/disko) to format the drives using native ZFS encryption with remote unlocking through SSH.
 - [sops-nix](https://github.com/Mic92/sops-nix) to handle secrets.
 - [deploy-rs](https://github.com/serokell/deploy-rs) to deploy updates.
 
@@ -17,9 +17,20 @@ It merely provides an opinionated way to make them all fit together for a seamle
 Because the landscape of installing NixOS could be better and this repository is an attempt at that.
 By being more opinionated, it allows you to get setup faster.
 
-By the way, the name SkaraboxOS comes from the scarab (the animal), box (for the server) and OS (for Operating System).
+> [!NOTE]
+> The name SkaraboxOS comes from the scarab (the animal), box (for the server) and OS (for Operating System).
 Scarab is spelled with a _k_ because it's kool.
 A scarab is a _very_ [strong](https://en.wikipedia.org/wiki/Dung_beetle#Ecology_and_behavior) animal representing well what this repository's intention.
+
+## Prerequisites
+Just like every project, there will need to be some things you will need to have/know before you can successfully install SkaraboxOS:
+1. Nix already installed on a laptop/desktop/server.
+2. A computer/server you would like to install SkaraboxOS on.
+3. A USB Key  
+   - Recommended to be bigger than 16 GB.
+4. An Internet Connection.
+   - Both devices will need to be networked so you can connect via SSH.
+
 
 ## Hardware Requirements
 
@@ -27,8 +38,7 @@ SkaraboxOS expects a particular hardware layout:
 
 - 1 SSD or NVMe drive for the OS.
 - 0 or 2 Hard drives that will store data.
-  Capacity depends on the amount of data that will be stored.
-  They will be formatted in Raid 1 (mirror) so each hard drive should have the same size.
+  - Capacity depends on the amount of data that will be stored. They will be formatted in Raid 1 (mirror) so each hard drive should have the same size.
 <!--
 This is for Self Host Blocks.
 
@@ -44,131 +54,154 @@ This is for Self Host Blocks.
   - for federation (to share documents or pictures across the internet).
 -->
 
-**WARNING: The 3 disks will be formatted and completely wiped out of data.**
+> [!WARNING]
+> The 1-3 disks will be formatted and completely wiped out of data.
 
 ## Installation Process Overview
 
-1. Download the flake template.
-2. Generate a ISO and format a USB key.
-3. Boot server on USB key and get its IP address.
-4. Generate secrets on laptop, update some default values.
-5. Run installer from laptop.
-6. Done!
+ 
+1. Write ISO to USB Key
+2. Boot server from USB key 
+4. Gather Configuration Requirements
+5. Download the Flake Template
+6. Perform Configuration Changes
+7. Done!
 
 At the end of the process, the server will:
-- Have an encrypted ZFS root partition using the NVMe drive, unlockable remotely through ssh.
-- Have an encrypted ZFS data hard drives.
-- Be accessible through ssh for administration and updates.
+- Have an encrypted ZFS root partition using the NVMe drive, unlockable remotely through SSH.
+- Have an encrypted ZFS data mirror on hard drives.
+  - If 2 hard drives was chosen.
+- Be accessible through SSH for administration and updates.
 
-Services can then be installed by using NixOS options directly or through [Self Host Blocks](https://github.com/ibizaman/selfhostblocks).
-The latter, similarly to SkaraboxOS, provides an opinionated way to configure services in a seamless way.
+Services can then be installed by using NixOS options directly or, through [Self Host Blocks](https://github.com/ibizaman/selfhostblocks). Similarly to SkaraboxOS, Self Host Blocks provide an opinionated way to configure services in a seamless way.
 
-## Caution
-
-Following the steps WILL ERASE THE CONTENT of any disk on that server.
+> [!CAUTION]
+> Proceeding with the following steps WILL ERASE THE CONTENT for the following devices:
+> - Data on USB Key.
+> - Data on Server hard drives.
 
 ## Installation
 
-1. Boot on the NixOS installer. You just need to boot, no need to install.
+### 1. Generate ISO
 
-   1. First, create the .iso file.
+Execute the following command to create the `.iso` file:
 
-   ```bash
-   $ nix build github:ibizaman/skarabox#beacon
-   ```
+```bash
+$ nix build github:ibizaman/skarabox#beacon
+```
 
-   2. Copy the .iso file to a USB key. This WILL ERASE THE CONTENT of the USB key.
+### 2. Write ISO to USB Key
 
-   ```bash
-   $ nix run nixpkgs#usbimager
-   ```
+1. Run USB Imager with the following command:
 
-   - Select `./result/iso/beacon.iso` file in row 1 (`...`).
-   - Select USB key in row 3.
-   - Click write (arrow down) in row 2.
+```bash
+$ nix run nixpkgs#usbimager
+```
+2. Select `./result/iso/beacon.iso` file in row 1 (`...`).
+3. Select USB key in row 3.
 
-   3. Plug the USB stick in the server. Choose to boot on it.
+> [!IMPORTANT]
+> Executing the next command will erase the USB Key!
 
-   You will be logged in automatically with user `nixos`.
+4. Click write (arrow down) in row 2.
 
-   4. Note down the IP address and disk layout of the server.
-      For that, follow the steps that appeared when booting on the USB stick.
+### 3. Boot server from USB key
 
-2. Connect to the installer and install
+With the server off; plug the USB stick in the server, hit the start button, and change the boot order (selecting USB Key as primary).
 
-   1. Create a directory and download the template.
+On first boot up, you will be logged in automatically with user `nixos`.
 
-   ```bash
-   $ mkdir myskarabox
-   $ cd myskarabox
-   $ nix flake init --template github:ibizaman/skarabox
-   ```
+> [!NOTE]
+> We have not installed SkaraboxOS on the system yet, we only just booted into a Live Environment.
 
-   2. Open the new `flake.nix` file and generate whatever it needs.
-   Also, open the other files and see how to generate them too.
-   All the instructions are included.
+### 4. Gather Configuration Requirements
 
-   Note the `root_passphrase` file will contain a passphrase that will need to be provided every time the server boots up.
+We will need the note the following pieces of information:
+ - IP Address
+ - Disk Layout
+ 
+Upon bootup, instructions will be at the top of the screen.
 
-   3. Run the following command replacing `<ip>` with the IP address you got in the previous step.
+> [!NOTE]
+> If there are no instructions, simply reboot the system.
 
-   ```bash
-   $ nix run github:nix-community/nixos-anywhere -- \
-     --flake '.#skarabox' \
-     --ssh-option "IdentitiesOnly=yes" \
-     --disk-encryption-keys /tmp/root_passphrase root_passphrase \
-     --disk-encryption-keys /tmp/data_passphrase data_passphrase \
-     nixos@<ip>
-   ```
+### 5. Download Flake Template
 
-   You will be prompted for a password, enter "skarabox123" without the double quotes.
+Create a directory and download the template.
 
-   4. The server will reboot into NixOS on its own.
+```bash
+$ mkdir myskarabox
+$ cd myskarabox
+$ nix flake init --template github:ibizaman/skarabox
+```
 
-   5. Decrypt the SSD and the Hard Drives.
+### 6. Perform Configuration Changes
 
-   Run the following command.
+Open the new `flake.nix` file and generate whatever it needs.
+Also, open the other files and see how to generate them too.
+All the instructions are included.
 
-   ```bash
-   $ ssh -p 2222 root@<ip> -o IdentitiesOnly=yes -i ssh_skarabox
-   ```
+Note the `root_passphrase` file will contain a passphrase that will need to be provided every time the server boots up.
 
-   It will prompt you a first time to verify the key fingerprint.
+3. Run the following command replacing `<ip>` with the IP address you got in the previous step.
 
-   ```bash
-   The authenticity of host '[<ip>]:2222 ([<ip>]:2222)' can't be established.
-   ED25519 key fingerprint is SHA256:<redacted>.
-   This key is not known by any other names.
-   Are you sure you want to continue connecting (yes/no/[fingerprint])?
-   ```
+```bash
+$ nix run github:nix-community/nixos-anywhere -- \
+  --flake '.#skarabox' \
+  --ssh-option "IdentitiesOnly=yes" \
+  --disk-encryption-keys /tmp/root_passphrase root_passphrase \
+  --disk-encryption-keys /tmp/data_passphrase data_passphrase \
+  nixos@<ip>
+```
 
-   Just enter `"yes"` followed by pressing on the Enter key.
-   Next time the server will boot, you will not need to do this step.
+You will be prompted for a password, enter "skarabox123" without the double quotes.
 
-   ```bash
-   Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
-   Warning: Permanently added '[<ip>]:2222' (ED25519) to the list of known hosts.
-   ```
+4. The server will reboot into NixOS on its own.
 
-   You will be prompted a second time, this time to enter the root passphrase.
-   Copy the content of the `root_passphrase` file and paste it and press Enter.
-   No `*` will appear upon pasting but just press Enter.
+5. Decrypt the SSD and the Hard Drives.
 
-   ```bash
-   Enter passphrase for 'root':
-   ```
+Run the following command.
 
-   The connection will disconnect automatically.
-   This is normal behavior.
+```bash
+$ ssh -p 2222 root@<ip> -o IdentitiesOnly=yes -i ssh_skarabox
+```
 
-   ```bash
-   Connection to <ip> closed.
-   ```
+It will prompt you a first time to verify the key fingerprint.
 
-   Now, the hard drives are decrypted and the server continues to boot.
+```bash
+The authenticity of host '[<ip>]:2222 ([<ip>]:2222)' can't be established.
+ED25519 key fingerprint is SHA256:<redacted>.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])?
+```
 
-   It's a good idea to make sure you can login correctly, at least the first time.
-   See next section.
+Just enter `"yes"` followed by pressing on the Enter key.
+Next time the server will boot, you will not need to do this step.
+
+```bash
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '[<ip>]:2222' (ED25519) to the list of known hosts.
+```
+
+You will be prompted a second time, this time to enter the root passphrase.
+Copy the content of the `root_passphrase` file and paste it and press Enter.
+No `*` will appear upon pasting but just press Enter.
+
+```bash
+Enter passphrase for 'root':
+```
+
+The connection will disconnect automatically.
+This is normal behavior.
+
+```bash
+Connection to <ip> closed.
+```
+
+Now, the hard drives are decrypted and the server continues to boot.
+
+It's a good idea to make sure you can login correctly, at least the first time.
+See next section.
 
 ## Normal Operations
 
@@ -254,12 +287,12 @@ Usually, connecting to it is done by entering one of the following IP addresses 
 - Enable port redirection for ports to the server IP:
   - 80 to 80.
   - 443 to 443.
-  - A random port to 22 to be able to ssh into your server from abroad.
+  - A random port to 22 to be able to SSH into your server from abroad.
   - A random port to 2222 to be able to start the server from abroad.
 
 To check if this setup works,
 you can connect to another network (like using the tethered connection from your phone or connecting to another WiFi network)
-and then ssh into your server like above,
+and then SSH into your server like above,
 but instead of using the IP address, use the domain name:
 
 ```bash
