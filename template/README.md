@@ -44,21 +44,7 @@ If you have any question, don't hesitate to open a [GitHub issue](https://github
 
 ### Secrets with SOPS
 
-To setup secrets with SOPS, you must retrieve the box's host key with:
-
-```bash
-$ ssh-keyscan -p 22 -t ed25519 -4 <ip>
-<ip> ssh-ed25519 AAAAC3NzaC1lXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-```
-
-Then transform it to an `age` key with:
-
-```bash
-$ nix shell nixpkgs#ssh-to-age --command sh -c "echo ssh-ed25519 AAAAC3NzaC1lXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX | ssh-to-age"
-age10gclXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-```
-
-Finally, allow that key to decrypt the secrets file:
+To setup secrets with SOPS, you would get the public key that was generated in the `Connect to the installer and install` step from the Installation Guide. This public key will be used to decrypt the secrets file; you can add the the key you the `.sops.yaml` file like so:
 
 ```bash
 SOPS_AGE_KEY_FILE=sops.key \

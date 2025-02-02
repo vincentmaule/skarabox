@@ -104,9 +104,8 @@ Following the steps WILL ERASE THE CONTENT of any disk on that server.
    $ nix flake init --template github:ibizaman/skarabox
    ```
 
-   2. Open the new `flake.nix` file and generate whatever it needs.
-   Also, open the other files and see how to generate them too.
-   All the instructions are included.
+   2. Generate Secrets using the `generate_secrets.sh` bash script. Open the new `flake.nix` file and generate whatever it needs.
+   
 
    Note the `root_passphrase` file will contain a passphrase that will need to be provided every time the server boots up.
 
@@ -116,8 +115,8 @@ Following the steps WILL ERASE THE CONTENT of any disk on that server.
    $ nix run github:nix-community/nixos-anywhere -- \
      --flake '.#skarabox' \
      --ssh-option "IdentitiesOnly=yes" \
-     --disk-encryption-keys /tmp/root_passphrase root_passphrase \
-     --disk-encryption-keys /tmp/data_passphrase data_passphrase \
+     --disk-encryption-keys /tmp/root_passphrase secrets/root_passphrase \
+     --disk-encryption-keys /tmp/data_passphrase secrets/data_passphrase \
      nixos@<ip>
    ```
 
