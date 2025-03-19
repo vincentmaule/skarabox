@@ -1,26 +1,33 @@
-{ config, options, lib, pkgs, ... }:
+{ config, options, lib, ... }:
 let
   cfg = config.skarabox.disks;
   opt = options.skarabox.disks;
 
-  inherit (lib) optionals;
+  inherit (lib) mkIf mkOption optionals optionalString types;
 in
 {
   options.skarabox.disks = {
-    rootPool = lib.mkOption {
-      type = lib.types.str;
+    rootPool = mkOption {
+      type = types.str;
       description = "Name of the root pool";
       default = "root";
     };
 
-    rootDisk = lib.mkOption {
-      type = lib.types.str;
+    rootDisk = mkOption {
+      type = types.str;
       description = "SSD disk on which to install.";
       example = "/dev/nvme0n1";
     };
 
-    rootReservation = lib.mkOption {
-      type = lib.types.str;
+    rootDisk2 = mkOption {
+      type = types.nullOr types.str;
+      description = "Second SSD disk on which to install.";
+      example = "/dev/nvme0n2";
+      default = null;
+    };
+
+    rootReservation = mkOption {
+      type = types.str;
       description = ''
         Disk size to reserve for ZFS internals. Should be between 10% and 15% of available size as recorded by zpool.
 
@@ -35,28 +42,30 @@ in
       example = "100G";
     };
 
-    enableDataPool = lib.mkEnableOption "data pool on separate hard drives.";
+    enableDataPool = lib.mkEnableOption "data pool on separate hard drives." // {
+      default = true;
+    };
 
-    dataPool = lib.mkOption {
-      type = lib.types.str;
+    dataPool = mkOption {
+      type = types.str;
       description = "Name of the data pool";
       default = "zdata";
     };
 
-    dataDisk1 = lib.mkOption {
-      type = lib.types.str;
+    dataDisk1 = mkOption {
+      type = types.str;
       description = "First disk on which to install the data pool.";
       example = "/dev/sda";
     };
 
-    dataDisk2 = lib.mkOption {
-      type = lib.types.str;
+    dataDisk2 = mkOption {
+      type = types.str;
       description = "Second disk on which to install the data pool.";
       example = "/dev/sdb";
     };
 
-    dataReservation = lib.mkOption {
-      type = lib.types.str;
+    dataReservation = mkOption {
+      type = types.str;
       description = ''
         Disk size to reserve for ZFS internals. Should be between 5% and 10% of available size as recorded by zpool.
 
@@ -71,8 +80,8 @@ in
       example = "1T";
     };
 
-    initialBackupDataset = lib.mkOption {
-      type = lib.types.bool;
+    initialBackupDataset = mkOption {
+      type = types.bool;
       description = "Create the backup dataset.";
       default = true;
     };
@@ -80,28 +89,35 @@ in
 
   config = {
     disko.devices = {
-      disk = {
-        root = {
+      disk = let
+        hasRaid = cfg.rootDisk2 != null;
+
+        rootSoleContent = {
+          type = "filesystem";
+          format = "vfat";
+          mountpoint = "/boot";
+          # Otherwise you get https://discourse.nixos.org/t/security-warning-when-installing-nixos-23-11/37636/2
+          mountOptions = [ "umask=0077" ];
+          # Copy the host_key needed for initrd in a location accessible on boot.
+          # It's prefixed by /mnt because we're installing and everything is mounted under /mnt.
+          postMountHook = ''
+            cp /etc/ssh/ssh_host_ed25519_key /mnt/boot/host_key
+          '';
+        };
+        rootRaidContent = {
+          type = "mdraid";
+          name = "boot";
+        };
+        mkRoot = rootDisk: {
           type = "disk";
-          device = cfg.rootDisk;
+          device = rootDisk;
           content = {
             type = "gpt";
             partitions = {
               ESP = {
-                size = "128M";
+                size = "500M";
                 type = "EF00";
-                content = {
-                  type = "filesystem";
-                  format = "vfat";
-                  mountpoint = "/boot";
-                  # Otherwise you get https://discourse.nixos.org/t/security-warning-when-installing-nixos-23-11/37636/2
-                  mountOptions = [ "umask=0077" ];
-                  # Copy the host_key needed for initrd in a location accessible on boot.
-                  # It's prefixed by /mnt because we're installing and everything is mounted under /mnt.
-                  postMountHook = ''
-                    cp /etc/ssh/ssh_host_ed25519_key /mnt/boot/host_key
-                  '';
-                };
+                content = if hasRaid then rootRaidContent else rootSoleContent;
               };
               zfs = {
                 size = "100%";
@@ -113,9 +129,10 @@ in
             };
           };
         };
-        data1 = lib.mkIf cfg.enableDataPool {
+
+        mkDataDisk = dataDisk: {
           type = "disk";
-          device = cfg.dataDisk1;
+          device = dataDisk;
           content = {
             type = "gpt";
             partitions = {
@@ -129,20 +146,27 @@ in
             };
           };
         };
-        data2 = lib.mkIf cfg.enableDataPool {
-          type = "disk";
-          device = cfg.dataDisk2;
+      in {
+        root = mkRoot cfg.rootDisk;
+        root1 = mkIf hasRaid (mkRoot cfg.rootDisk2);
+        data1 = mkIf cfg.enableDataPool (mkDataDisk cfg.dataDisk1);
+        data2 = mkIf cfg.enableDataPool (mkDataDisk cfg.dataDisk2);
+      };
+      mdadm = {
+        boot = mkIf (cfg.rootDisk2 != null) {
+          type = "mdadm";
+          level = 1;
+          metadata = "1.0";
           content = {
-            type = "gpt";
-            partitions = {
-              zfs = {
-                size = "100%";
-                content = {
-                  type = "zfs";
-                  pool = cfg.dataPool;
-                };
-              };
-            };
+            type = "filesystem";
+            format = "vfat";
+            mountpoint = "/boot";
+            mountOptions = [ "umask=0077" ];
+            # Copy the host_key needed for initrd in a location accessible on boot.
+            # It's prefixed by /mnt because we're installing and everything is mounted under /mnt.
+            postMountHook = ''
+              cp /etc/ssh/ssh_host_ed25519_key /mnt/boot/host_key
+            '';
           };
         };
       };
@@ -210,14 +234,14 @@ in
               mountpoint = "/persist";
               # It's prefixed by /mnt because we're installing and everything is mounted under /mnt.
               options.mountpoint = "legacy";
-              postMountHook = ''
+              postMountHook = optionalString cfg.enableDataPool ''
                 cp /tmp/data_passphrase /mnt/persist/data_passphrase
               '';
             };
           };
         };
 
-        ${cfg.dataPool} = lib.mkIf cfg.enableDataPool {
+        ${cfg.dataPool} = mkIf cfg.enableDataPool {
           type = "zpool";
           mode = "mirror";
           options = {
@@ -266,7 +290,7 @@ in
         };
       };
     };
-    fileSystems."/srv/backup" = lib.mkIf (cfg.enableDataPool && cfg.initialBackupDataset) {
+    fileSystems."/srv/backup" = mkIf (cfg.enableDataPool && cfg.initialBackupDataset) {
       options = [ "nofail" ];
     };
 

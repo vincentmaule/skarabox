@@ -8,6 +8,7 @@ It provides a flake [template](./template) which combines:
 - [disko](https://github.com/nix-community/disko) to format the drives using native ZFS encryption with remote unlocking through ssh.
 - [sops-nix](https://github.com/Mic92/sops-nix) to handle secrets.
 - [deploy-rs](https://github.com/serokell/deploy-rs) to deploy updates.
+- Which supports x86_64 and aarch64 platform.
 
 This repository does not invent any of those wonderful tools.
 It merely provides an opinionated way to make them all fit together for a seamless experience.
@@ -25,10 +26,11 @@ A scarab is a _very_ [strong](https://en.wikipedia.org/wiki/Dung_beetle#Ecology_
 
 SkaraboxOS expects a particular hardware layout:
 
-- 1 SSD or NVMe drive for the OS.
+- 1 or 2 SSD or NVMe drive for the OS.
+  If 2, they will be formatted in Raid 1 (mirror) so each hard drive should have the same size.
 - 0 or 2 Hard drives that will store data.
   Capacity depends on the amount of data that will be stored.
-  They will be formatted in Raid 1 (mirror) so each hard drive should have the same size.
+  If 2, they will too be formatted in Raid 1.
 <!--
 This is for Self Host Blocks.
 
@@ -44,7 +46,7 @@ This is for Self Host Blocks.
   - for federation (to share documents or pictures across the internet).
 -->
 
-**WARNING: The 3 disks will be formatted and completely wiped out of data.**
+**WARNING: The disks will be formatted and completely wiped out of data.**
 
 ## Installation Process Overview
 
